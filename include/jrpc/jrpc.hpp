@@ -703,8 +703,7 @@ namespace jsonrpc {
             pack_params( json, std::forward<Args>( args )... );
         }
 
-        template <typename... Args> auto call( std::int32_t id, std::string_view name, Args&&... args ) {
-
+        template <typename T, typename... Args> auto call( std::int32_t id, std::string_view name, Args&&... args ) -> T {
             Json params;
             pack_params( params, std::forward<Args>( args )... );
             Json j;
@@ -715,10 +714,17 @@ namespace jsonrpc {
 
             send( j.dump( ) );
             std::cout << "<-- " << j.dump( ) << std::endl;
-            recv( []( auto& client, const auto& buffer ) {
+            recv( [&]( auto& client, const auto& buffer ) {
                 std::string_view s { reinterpret_cast<const char*>( std::data( buffer ) ), std::size( buffer ) };
                 std::cout << "--> " << s << std::endl;
+                j = Json::parse( buffer );
             } );
+
+            if ( !j.empty( ) && j.find( "result" ) != j.end( ) ) {
+                return j["result"].get<T>( );
+            }
+
+            return T { };
         }
 
         template <typename... Args> auto notify( std::string_view name, Args&&... args ) {
